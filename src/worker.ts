@@ -10,7 +10,7 @@ import { OrderRequest } from './types';
 dotenv.config();
 
 // FIX: Cast "as string" here too
-const redisUrl = (process.env.REDIS_URL as string) || 'redis://127.0.0.1:6379';
+const redisUrl = (process.env.REDIS_URL as string);
 const prefix = (process.env.QUEUE_PREFIX as string) || 'order-engine';
 const concurrency = Number(process.env.WORKER_CONCURRENCY || 10);
 
