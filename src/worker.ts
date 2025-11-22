@@ -1,4 +1,3 @@
-// src/worker.ts
 import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import dotenv from 'dotenv';
@@ -9,13 +8,17 @@ import { OrderRequest } from './types';
 
 dotenv.config();
 
-// FIX: Cast "as string" here too
-const redisUrl = (process.env.REDIS_URL as string);
-const prefix = (process.env.QUEUE_PREFIX as string) || 'order-engine';
+// STRICT CHECKS
+if (!process.env.REDIS_URL) {
+  throw new Error('CRITICAL ERROR: REDIS_URL is missing!');
+}
+
+const redisUrl = process.env.REDIS_URL;
+const prefix = process.env.QUEUE_PREFIX || 'order-engine';
 const concurrency = Number(process.env.WORKER_CONCURRENCY || 10);
 
 console.log(`[WORKER] Initializing...`);
-console.log(`[WORKER] Redis Config: ${redisUrl}`);
+console.log(`[WORKER] Redis Config: ${redisUrl.substring(0, 15)}... (Hidden)`); // Good security practice not to log full credentials
 console.log(`[WORKER] Queue Prefix: ${prefix}`);
 console.log(`[WORKER] Concurrency: ${concurrency}`);
 
@@ -36,22 +39,19 @@ export function startWorker() {
       const { orderId, order }: { orderId: string, order: OrderRequest } = job.data;
       
       try {
-        console.log(`[WORKER] Processing Order ID: ${orderId} (${order.amountIn} ${order.tokenIn} -> ${order.tokenOut})`);
+        console.log(`[WORKER] Processing Order ID: ${orderId}`);
         
         // 1. PENDING
         sendStatus(orderId, { status: 'pending', message: 'Order received and queued' });
         await updateOrderStatus(orderId, { status: 'routing', attempts: job.attemptsMade + 1 });
-        console.log(`[WORKER] [${orderId}] Status updated to Routing`);
 
         // 2. ROUTING
-        console.log(`[WORKER] [${orderId}] Fetching quotes...`);
         const [r, m] = await Promise.all([
           dex.getRaydiumQuote(order.tokenIn, order.tokenOut, order.amountIn),
           dex.getMeteoraQuote(order.tokenIn, order.tokenOut, order.amountIn)
         ]);
 
         const chosen = dex.chooseBest(r, m);
-        console.log(`[WORKER] [${orderId}] Chosen: ${chosen.dex}`);
         
         sendStatus(orderId, { 
           status: 'routing', 
@@ -66,8 +66,6 @@ export function startWorker() {
         if (order.tokenIn.toUpperCase() === 'SOL') {
             console.log(`[WORKER] [${orderId}] ℹ️  Native SOL detected. Wrapping to wSOL...`);
         }
-
-        console.log(`[WORKER] [${orderId}] Status updated to Building`);
 
         // 4. SUBMITTING
         await new Promise(r => setTimeout(r, 500));
@@ -91,10 +89,7 @@ export function startWorker() {
         
         await updateOrderStatus(orderId, finalPayload as any);
         sendStatus(orderId, finalPayload);
-        
-        console.log(`[WORKER] [${orderId}] ✅ SWAP CONFIRMED. Tx: ${result.txHash}`);
-        console.log(`[WORKER] <<< JOB COMPLETE: ${job.id}`);
-
+        console.log(`[WORKER] [${orderId}] ✅ SWAP CONFIRMED.`);
         return { ok: true };
 
       } catch (err: any) {
