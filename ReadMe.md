@@ -150,3 +150,97 @@ The project includes a comprehensive integration test suite using Jest. It tests
 ```bash
 # Run the test suite (Requires App to be running)
 npm test
+
+# Deployment Guide (Render.com)
+
+This guide details how to deploy the Order Execution Engine to **Render.com** using their free tier for Node.js, PostgreSQL, and Redis.
+
+## Prerequisites
+* A GitHub account with this repository pushed.
+* A [Render.com](https://render.com/) account.
+
+---
+
+## Step 1: Create the Databases
+You must create the database services first to generate the connection strings needed for the application.
+
+### 1. PostgreSQL Database
+1. Log in to the Render Dashboard.
+2. Click **New +** and select **PostgreSQL**.
+3. **Name:** `order-db`
+4. **Region:** Choose the region closest to you (e.g., Singapore, Frankfurt).
+5. **Plan:** Free.
+6. Click **Create Database**.
+7. **Copy Connection:** Scroll down to the **Connections** section. Copy the **"Internal Database URL"** (starts with `postgres://`). Save this for Step 3.
+
+### 2. Redis Database
+1. Click **New +** and select **Redis**.
+2. **Name:** `order-queue`
+3. **Region:** **Must match the region you chose for PostgreSQL.**
+4. **Plan:** Free.
+5. Click **Create Redis**.
+6. **Copy Connection:** Scroll down to the **Connections** section. Copy the **"Internal Redis URL"** (starts with `redis://`). Save this for Step 3.
+
+---
+
+## Step 2: Deploy the Node.js Web Service
+
+1. Click **New +** and select **Web Service**.
+2. Click **Build and deploy from a Git repository**.
+3. Connect your GitHub account and select the `backend-eternal-lab` repository.
+4. Configure the following settings exactly:
+
+| Setting | Value |
+| :--- | :--- |
+| **Name** | `order-engine` |
+| **Region** | Same as your databases |
+| **Runtime** | `Node` |
+| **Build Command** | `npm install && npm run build` |
+| **Start Command** | `npm run start` |
+| **Plan** | Free |
+
+---
+
+## Step 3: Configure Environment Variables
+
+Before clicking "Create", scroll down to the **Environment Variables** section. Click "Add Environment Variable" for each of the following:
+
+| Key | Value |
+| :--- | :--- |
+| `PG_CONNECTION` | Paste the **Internal Database URL** copied in Step 1. |
+| `REDIS_URL` | Paste the **Internal Redis URL** copied in Step 1. |
+| `QUEUE_PREFIX` | `order-engine` |
+| `WORKER_CONCURRENCY` | `10` |
+| `NODE_VERSION` | `18` |
+
+*Note: You do not need to add a `PORT` variable; Render sets this automatically to 10000.*
+
+---
+
+## Step 4: Finish & Verify
+
+1. Click **Create Web Service**.
+2. Render will start the build process. This typically takes 2-4 minutes.
+3. Click on the **Logs** tab to monitor progress.
+
+**Success Indicators:**
+You know the deployment is successful when you see logs similar to:
+* `Running 'npm run build'`
+* `Build successful`
+* `[WORKER] Redis Config: redis://red-.......`
+* `Server listening on http://0.0.0.0:10000`
+
+### Your Public URL
+Your API is now accessible at the URL shown in the top-left corner of the dashboard (e.g., `https://order-engine.onrender.com`).
+
+---
+
+## Troubleshooting Common Errors
+
+**Error: `Cannot find module .../index.js`**
+* **Cause:** Render is trying to guess your start command.
+* **Fix:** Ensure the **Start Command** in Settings is explicitly set to `npm run start`.
+
+**Error: `connect ECONNREFUSED 127.0.0.1...`**
+* **Cause:** The application cannot find the environment variables and is defaulting to localhost.
+* **Fix:** Go to the **Environment** tab and double-check that `PG_CONNECTION` and `REDIS_URL` are pasted correctly and do not contain spaces.
