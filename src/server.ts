@@ -13,7 +13,9 @@ import { now } from './utils';
 dotenv.config();
 
 const PORT = Number(process.env.PORT || 3000);
-const app: FastifyInstance = Fastify({ logger: true });
+const app: FastifyInstance = Fastify({ logger: true,
+                                     trustProxy; true
+                                     });
 
 // Root Route
 app.get('/', async () => ({ status: 'ok', service: 'Order Execution Engine' }));
@@ -48,7 +50,10 @@ app.post<{ Body: OrderRequest }>('/api/orders/execute', async (req, reply) => {
     await insertOrder(rec);
     await enqueueOrder(orderId, { orderId, order: body });
 
-    const wsUrl = `ws://${req.hostname}:${PORT}/ws/orders/${orderId}`;
+    const isSecure = req.protocol === 'https';
+    const protocol = isSecure ? 'wss' : 'ws';
+    const host = req.headers.host; 
+    const wsUrl = `${protocol}://${host}/ws/orders/${orderId}`;
     
     return reply.status(202).send({ orderId, status: 'queued', wsUrl });
 
