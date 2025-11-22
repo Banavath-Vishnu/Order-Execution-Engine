@@ -14,7 +14,7 @@ dotenv.config();
 
 const PORT = Number(process.env.PORT || 3000);
 const app: FastifyInstance = Fastify({ logger: true,
-                                     trustProxy; true
+                                     trustProxy: true
                                      });
 
 // Root Route
