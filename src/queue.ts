@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // FIX: Cast "as string" to shut up the compiler
-const redisUrl = (process.env.REDIS_URL as string) || 'redis://127.0.0.1:6379';
+const redisUrl = (process.env.REDIS_URL as string);
 
 const connection = new IORedis(redisUrl, { 
   maxRetriesPerRequest: null 
