@@ -9,7 +9,7 @@ import { OrderRequest } from './types';
 dotenv.config();
 
 // Configuration
-const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+const redisUrl = process.env.REDIS_URL;
 const prefix = process.env.QUEUE_PREFIX || 'order-engine';
 const concurrency = Number(process.env.WORKER_CONCURRENCY || 10);
 
