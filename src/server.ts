@@ -1,4 +1,3 @@
-
 import Fastify, { FastifyInstance } from 'fastify';
 import { WebSocketServer, WebSocket } from 'ws'; // Standard WS library
 import { v4 as uuidv4 } from 'uuid';
@@ -13,9 +12,12 @@ import { now } from './utils';
 dotenv.config();
 
 const PORT = Number(process.env.PORT || 3000);
-const app: FastifyInstance = Fastify({ logger: true,
-                                     trustProxy: true
-                                     });
+
+// 1. TRUST PROXY: Required for Railway/Render to detect HTTPS vs HTTP
+const app: FastifyInstance = Fastify({ 
+  logger: true,
+  trustProxy: true 
+});
 
 // Root Route
 app.get('/', async () => ({ status: 'ok', service: 'Order Execution Engine' }));
@@ -50,9 +52,12 @@ app.post<{ Body: OrderRequest }>('/api/orders/execute', async (req, reply) => {
     await insertOrder(rec);
     await enqueueOrder(orderId, { orderId, order: body });
 
+    // 2. PRODUCTION URL LOGIC
+    // Detects if we are on HTTPS (Production) or HTTP (Local)
     const isSecure = req.protocol === 'https';
     const protocol = isSecure ? 'wss' : 'ws';
-    const host = req.headers.host; 
+    const host = req.headers.host; // Gets the real domain (e.g. app.railway.app)
+    
     const wsUrl = `${protocol}://${host}/ws/orders/${orderId}`;
     
     return reply.status(202).send({ orderId, status: 'queued', wsUrl });
@@ -63,7 +68,6 @@ app.post<{ Body: OrderRequest }>('/api/orders/execute', async (req, reply) => {
   }
 });
 
-
 (async () => {
   try {
     await initDb();
@@ -71,19 +75,18 @@ app.post<{ Body: OrderRequest }>('/api/orders/execute', async (req, reply) => {
     
     startWorker(); 
     
-    // 1. Start Fastify (HTTP)
+    // Start Fastify (HTTP)
     await app.listen({ port: PORT, host: '0.0.0.0' });
     console.log(`Server listening on http://0.0.0.0:${PORT}`);
 
-    // 2. Create Native WebSocket Server attached to Fastify's HTTP server
-
+    // Start Native WebSocket Server attached to Fastify
     const wss = new WebSocketServer({ server: app.server });
 
     wss.on('connection', (ws: WebSocket, req: any) => {
         const url = req.url || '';
         console.log(`[WS] New connection from ${url}`);
 
-        // This regex grabs the last part of the path
+        // Grab Order ID from path: /ws/orders/UUID
         const match = url.match(/\/ws\/orders\/([a-zA-Z0-9-]+)/);
         const orderId = match ? match[1] : null;
 
@@ -94,7 +97,6 @@ app.post<{ Body: OrderRequest }>('/api/orders/execute', async (req, reply) => {
             return;
         }
 
-        // Bind and Confirm
         bindSocket(orderId, ws);
         ws.send(JSON.stringify({ status: 'connected', orderId, message: 'Waiting for updates...' }));
     });
