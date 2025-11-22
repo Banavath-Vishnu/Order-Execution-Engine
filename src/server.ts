@@ -11,7 +11,8 @@ import { now } from './utils';
 
 dotenv.config();
 
-const PORT = Number(process.env.PORT || 3000);
+const envPort = Number(process.env.PORT);
+const PORT = isNaN(envPort) ? 3000 : envPort;
 
 // 1. TRUST PROXY: Required for Railway/Render to detect HTTPS vs HTTP
 const app: FastifyInstance = Fastify({ 
